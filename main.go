@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -13,8 +15,20 @@ import (
 var webcam *gocv.VideoCapture
 var stream *mjpeg.Stream
 
+var authUsername = flag.String("user", "username", "Username for http basic authentication")
+var authPassword = flag.String("pass", "password", "Password for http basic authentication")
+
+var showHelp = flag.Bool("h", false, "Show Help")
+
 func main() {
-	deviceId := 1
+	flag.Parse()
+
+	if *showHelp {
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+
+	deviceId := 0
 
 	var webcamErr error
 	webcam, webcamErr = gocv.OpenVideoCapture(deviceId)
@@ -29,8 +43,33 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.Handle("/", stream)
-	log.Fatal(http.ListenAndServe("0.0.0.0:4000", mux))
+	log.Fatal(http.ListenAndServe("0.0.0.0:4000", basicAuth(mux)))
 
+}
+
+func basicAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		username, password, ok := r.BasicAuth()
+
+		if ok {
+			usernameHash := sha256.Sum256([]byte(username))
+			passwordHash := sha256.Sum256([]byte(password))
+
+			expectedUsernameHash := sha256.Sum256([]byte(*authUsername))
+			expectedPasswordHash := sha256.Sum256([]byte(*authPassword))
+
+			if usernameHash == expectedUsernameHash && passwordHash == expectedPasswordHash {
+
+				next.ServeHTTP(w, r)
+				return
+			} else {
+				log.Println("login error")
+			}
+		}
+
+		w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	})
 }
 
 func mjpegCapture() {
