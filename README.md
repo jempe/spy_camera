@@ -2,6 +2,8 @@
 
 This repo will help you to turn your PC into a surveillance camera. With this setup, you'll be able to monitor & record activities remotely. When movement is detected, it will save a video to your hard drive.
 
+[Watch the demo video on YouTube](https://youtu.be/We2LF1sxV0E)
+
 ## Requisites
 
 - Go
